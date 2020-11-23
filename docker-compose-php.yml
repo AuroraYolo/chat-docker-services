@@ -1,0 +1,116 @@
+version: "3"
+services:
+  nginx:
+    container_name: chat_nginx
+    build:
+      context: nginx
+      args:
+        NGINX_VERSION: ${NGINX_VERSION}
+        ALPINE_REPOSITORIES: ${ALPINE_REPOSITORIES}
+        ALPINE_REPOSITORIES_REPLACE: ${ALPINE_REPOSITORIES_REPLACE}
+        TZ: ${TZ}
+    ports:
+      - "${NGINX_HTTP_HOST_PORT}:80"
+      - "${NGINX_HTTPS_HOST_PORT}:443"
+    volumes:
+      - ${CONF_PATH}/nginx/conf/conf.d:/etc/nginx/conf.d:rw
+      - ${CONF_PATH}/nginx/conf/vhost:/etc/nginx/vhost:rw
+      - ${CONF_PATH}/nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${LOG_PATH}/nginx:/var/log/nginx/:rw
+    stdin_open: true
+    tty: true
+    restart: always
+    networks:
+      - chat
+
+  nsqlookupd:
+    container_name: chat_nsq_lookupd
+    image: nsqio/nsq
+    command: /nsqlookupd
+    ports:
+      - "4160"
+      - "4161"
+  nsqd:
+    container_name: chat_nsqd
+    image: nsqio/nsq
+    command: /nsqd --lookupd-tcp-address=nsqlookupd:4160
+    depends_on:
+      - nsqlookupd
+    ports:
+      - "4150"
+      - "4151"
+  nsqadmin:
+    container_name: chat_nsq_admin
+    image: nsqio/nsq
+    command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
+    depends_on:
+      - nsqlookupd
+    ports:
+      - "4171"
+
+
+  mysql:
+    container_name: chat_mysql
+    build:
+      context: mysql
+      args:
+        MYSQL_VERSION: ${MYSQL_VERSION}
+    ports:
+      - "${MYSQL_HOST_PORT}:3306"
+    volumes:
+      - ${CONF_PATH}/mysql/conf/mysql.cnf:/etc/mysql/conf.d/mysql.cnf:rw
+      - ${DATA_PATH}/mysql:/var/lib/mysql:rw
+      - ${LOG_PATH}/mysql:/var/log/mysql:rw
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      TZ: "${TZ}"
+    networks:
+      - chat
+
+
+  redis:
+    container_name: chat_redis
+    build:
+      context: redis
+      args:
+        REDIS_VERSION: ${REDIS_VERSION}
+        ALPINE_REPOSITORIES: ${ALPINE_REPOSITORIES}
+        ALPINE_REPOSITORIES_REPLACE: ${ALPINE_REPOSITORIES_REPLACE}
+        TZ: ${TZ}
+    ports:
+      - "${REDIS_HOST_PORT}:6379"
+    volumes:
+      - ${CONF_PATH}/redis/conf/redis.conf:/etc/redis.conf:rw
+      - ${DATA_PATH}/redis:/data:rw
+    restart: always
+    stdin_open: true
+    tty: true
+    entrypoint: ["redis-server", "/etc/redis.conf"]
+    networks:
+      - chat
+
+  rabbitmq:
+    container_name: chat_rabbitmq
+    build:
+      context: rabbitmq
+      args:
+        RABBITMQ_VERSION: ${RABBITMQ_VERSION}
+    ports:
+      - "${RABBITMQ_HOST_PORT_C}:5672"
+      - "${RABBITMQ_HOST_PORT_S}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
+      TZ: "${TZ}"
+    volumes:
+      - ${LOG_PATH}/rabbitmq:/var/log/rabbitmq:rw
+      - ${DATA_PATH}/rabbitmq:/var/lib/rabbitmq:rw
+    stdin_open: true
+    tty: true
+    restart: always
+    networks:
+      - chat
+
+networks:
+  chat:
