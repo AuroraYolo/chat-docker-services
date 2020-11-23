@@ -47,9 +47,9 @@
  - [https://localhost](https://localhost)：自定义证书*https*站点，访问时浏览器会有安全提示，忽略提示访问即可
 两个站点使用同一PHP代码：`./www/localhost/index.php`。
 
-要修改端口、日志文件位置、php代码目录位置、php扩展、php镜像版本等，请修改**.env**文件，然后重新构建：
+要修改端口、日志文件位置等，请修改**.env**文件，然后重新构建：
 ```bash
-$ docker-compose build php7    # 重建单个服务
+$ docker-compose build nginx    # 重建单个服务
 $ docker-compose build          # 重建全部服务
 
 ```
